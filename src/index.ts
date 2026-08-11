@@ -234,10 +234,41 @@ async function updateRepository(id: string) {
         if (!(await isGitRepository(repo.directory))) {
             throw new Error(`Repository not found: ${repo.id}`);
         }
+
+        const currentRevision = await runGit(["rev-parse", "HEAD"], repo.directory);
         await runGit(["fetch", "--depth", "1", "origin"], repo.directory);
-        await runGit(["reset", "--hard", "FETCH_HEAD"], repo.directory);
-        await syncCodeGraphIndex(repo.directory);
-        return repositorySummary(repo);
+        const fetchedRevision = await runGit(["rev-parse", "FETCH_HEAD"], repo.directory);
+        const hasCodeGraphIndex = await pathExists(path.join(repo.directory, ".codegraph"));
+        const hasRepositoryUpdate = currentRevision !== fetchedRevision;
+
+        let hasTrackedChanges = false;
+        if (!hasRepositoryUpdate) {
+            const trackedChanges = await runGit(["status", "--porcelain", "--untracked-files=no"], repo.directory);
+            hasTrackedChanges = trackedChanges.length > 0;
+        }
+
+        const shouldReset = hasRepositoryUpdate || hasTrackedChanges;
+
+        if (shouldReset) {
+            await runGit(["reset", "--hard", "FETCH_HEAD"], repo.directory);
+        }
+
+        if (shouldReset || !hasCodeGraphIndex) {
+            await syncCodeGraphIndex(repo.directory);
+        } else {
+            console.log(`[codegraph-mcp] ${repo.id} is already up to date; skipped reset and CodeGraph sync`);
+        }
+
+        let message = "Updated to the latest remote commit and synchronized the CodeGraph index";
+        if (!hasRepositoryUpdate && hasTrackedChanges) {
+            message = "Remote is up to date; reset local changes and synchronized the CodeGraph index";
+        } else if (!hasRepositoryUpdate && !hasCodeGraphIndex) {
+            message = "Repository is up to date; initialized the CodeGraph index";
+        } else if (!hasRepositoryUpdate) {
+            message = "Repository is up to date; skipped reset and CodeGraph sync";
+        }
+
+        return { ...(await repositorySummary(repo)), updated: hasRepositoryUpdate, message };
     });
 }
 
@@ -324,7 +355,7 @@ function createMcpServer(): McpServer {
     server.registerTool(
         "repo_update",
         {
-            description: "Update a shallow clone to the latest remote commit, then sync or initialize its CodeGraph index.",
+            description: "Update a shallow clone to the latest remote commit; skip reset and CodeGraph sync when there are no changes.",
             inputSchema: {
                 id: z.string().regex(REPOSITORY_ID_PATTERN).describe("Repository id, for example colbymchenry/codegraph"),
             },

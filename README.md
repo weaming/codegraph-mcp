@@ -55,3 +55,5 @@ The build downloads and verifies the matching CodeGraph Linux bundle, builds the
 | `PORT` | `8080` | HTTP port inside the container |
 
 Repository IDs use the `owner/name` format, for example `octocat/Hello-World`.
+
+`repo_update` returns `updated: true` when the remote commit changes and includes an English `message` describing the update or skipped synchronization.
