@@ -98,8 +98,3 @@ jobs:
             --tag "${IMAGE}:${GITHUB_REF_NAME}" \
             "${IMAGE}:${GITHUB_SHA}-arm64" \
             "${IMAGE}:${GITHUB_SHA}-x64"
-
-      - name: Mark GHCR package public
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh api --method PATCH "/user/packages/container/codegraph-mcp" -f visibility=public
