@@ -4,7 +4,7 @@ A small Streamable HTTP MCP server that manages shallow Git clones and analyzes 
 
 The server exposes repository management and analysis tools at `/mcp`:
 
-- `repo_create`
+- `repo_add`
 - `repo_list`
 - `repo_update`
 - `repo_delete`

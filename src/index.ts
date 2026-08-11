@@ -301,7 +301,7 @@ function createMcpServer(): McpServer {
     );
 
     server.registerTool(
-        "repo_create",
+        "repo_add",
         {
             description: "通过 HTTPS shallow clone 创建仓库；id 省略时从 Git URL 的 owner/name 推导。创建后自动执行 codegraph init。",
             inputSchema: {
