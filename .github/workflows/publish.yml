@@ -60,8 +60,8 @@ jobs:
           curl --fail --location --retry 3 \
             "https://github.com/colbymchenry/codegraph/releases/download/${CODEGRAPH_VERSION}/SHA256SUMS" \
             --output tmp/SHA256SUMS
-          grep "  codegraph-linux-${{ matrix.asset }}.tar.gz$" tmp/SHA256SUMS \
-            | sha256sum --check --status
+          expected_checksum=$(awk '$2 == "codegraph-linux-${{ matrix.asset }}.tar.gz" {print $1}' tmp/SHA256SUMS)
+          printf '%s  tmp/codegraph.tar.gz\n' "$expected_checksum" | sha256sum --check --status
           tar --extract --gzip --strip-components=1 \
             --file tmp/codegraph.tar.gz --directory tmp/codegraph
 
