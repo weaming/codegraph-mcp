@@ -1,0 +1,17 @@
+services:
+  codegraph-mcp:
+    image: ${CODEGRAPH_MCP_IMAGE:-ghcr.io/weaming/codegraph-mcp:latest}
+    restart: unless-stopped
+    environment:
+      PORT: 8080
+      CODEGRAPH_REPO_ROOT: /repos
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      NO_PROXY: localhost,127.0.0.1
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - codegraph-repos:/repos
+
+volumes:
+  codegraph-repos:

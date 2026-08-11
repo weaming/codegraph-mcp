@@ -1,0 +1,105 @@
+name: Publish container
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  CODEGRAPH_VERSION: v1.5.0
+
+jobs:
+  build:
+    name: Build ${{ matrix.asset }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/arm64
+            asset: arm64
+          - platform: linux/amd64
+            asset: x64
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Build MCP bundle
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download CodeGraph bundle
+        run: |
+          mkdir -p tmp/codegraph
+          curl --fail --location --retry 3 \
+            "https://github.com/colbymchenry/codegraph/releases/download/${CODEGRAPH_VERSION}/codegraph-linux-${{ matrix.asset }}.tar.gz" \
+            --output tmp/codegraph.tar.gz
+          curl --fail --location --retry 3 \
+            "https://github.com/colbymchenry/codegraph/releases/download/${CODEGRAPH_VERSION}/SHA256SUMS" \
+            --output tmp/SHA256SUMS
+          grep "  codegraph-linux-${{ matrix.asset }}.tar.gz$" tmp/SHA256SUMS \
+            | sha256sum --check --status
+          tar --extract --gzip --strip-components=1 \
+            --file tmp/codegraph.tar.gz --directory tmp/codegraph
+
+      - name: Build and push architecture image
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/codegraph-mcp
+        run: |
+          docker buildx build \
+            --platform "${{ matrix.platform }}" \
+            --build-context codegraph=tmp/codegraph \
+            --tag "${IMAGE}:${GITHUB_SHA}-${{ matrix.asset }}" \
+            --push \
+            .
+
+  manifest:
+    name: Publish multi-architecture tags
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create manifests
+        env:
+          IMAGE: ghcr.io/${{ github.repository_owner }}/codegraph-mcp
+        run: |
+          docker buildx imagetools create \
+            --tag "${IMAGE}:latest" \
+            --tag "${IMAGE}:${GITHUB_REF_NAME}" \
+            "${IMAGE}:${GITHUB_SHA}-arm64" \
+            "${IMAGE}:${GITHUB_SHA}-x64"
+
+      - name: Mark GHCR package public
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh api --method PATCH "/user/packages/container/codegraph-mcp" -f visibility=public

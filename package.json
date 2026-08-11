@@ -1,0 +1,20 @@
+{
+  "name": "codegraph-mcp",
+  "version": "0.1.0",
+  "description": "A Streamable HTTP MCP server for Git repositories and CodeGraph analysis",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "rm -rf dist && bun build src/index.ts --target=node --outfile=dist/index.js --minify",
+    "test": "bun run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/node": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "typescript": "^7.0.2"
+  }
+}
